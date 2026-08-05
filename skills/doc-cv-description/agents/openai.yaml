@@ -1,0 +1,4 @@
+interface:
+  display_name: "my-skills-czf : doc-CV-description"
+  short_description: "Turn technical projects into structured resume and interview material"
+  default_prompt: "Use $doc-cv-description to turn this technical project into structured resume and interview material."

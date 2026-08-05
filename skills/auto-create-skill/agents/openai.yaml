@@ -1,0 +1,4 @@
+interface:
+  display_name: "my-skills-czf : Auto Create Skill"
+  short_description: "自动将 Skill 添加到个人 Skill 仓库"
+  default_prompt: "Use $auto-create-skill to add this reusable skill to my personal skill repository."

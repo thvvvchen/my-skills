@@ -1,0 +1,4 @@
+interface:
+  display_name: "my-skills-czf : Code Flow Lifecycle Walkthrough"
+  short_description: "按真实代码讲清调用链、状态流和生命周期"
+  default_prompt: "Use $code-flow-lifecycle-walkthrough to walk through this module from entry point to cleanup."
