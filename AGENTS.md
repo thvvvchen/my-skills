@@ -4,7 +4,9 @@ This repository stores reusable AI agent skills.
 
 ## Authoring rules
 
-- Keep every installable skill under `skills/<skill-name>/`.
+- Keep every installable skill under `plugins/my-skills-czf/skills/<skill-name>/`.
+- Treat `plugins/my-skills-czf/skills/` as the only source of installable skills.
+- Keep `.agents/plugins/marketplace.json` and `plugins/my-skills-czf/.codex-plugin/plugin.json` valid when changing plugin metadata or layout.
 - Name skills with lowercase letters, digits, and hyphens only.
 - Give each skill a `SKILL.md` with only `name` and `description` in YAML frontmatter.
 - Put triggering conditions in `description`, because agents see it before loading the body.
