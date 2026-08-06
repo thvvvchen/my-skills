@@ -11,7 +11,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$skillsRoot = Join-Path $repoRoot 'skills'
+$skillsRoot = Join-Path $repoRoot 'plugins\my-skills-czf\skills'
 $skills = @(
     Get-ChildItem -LiteralPath $skillsRoot -Directory |
         Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') }

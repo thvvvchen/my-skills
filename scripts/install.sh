@@ -25,7 +25,7 @@ fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
-skills_root="$repo_root/skills"
+skills_root="$repo_root/plugins/my-skills-czf/skills"
 targets=()
 [[ "$agent" == "all" || "$agent" == "claude" ]] && targets+=("claude|$HOME/.claude/skills|link")
 [[ "$agent" == "all" || "$agent" == "codex" ]] && targets+=("codex|$HOME/.codex/skills|link")
