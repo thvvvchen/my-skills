@@ -7,14 +7,19 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 
 PLUGIN_NAME = "my-skills-czf"
 PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "plugins" / PLUGIN_NAME
 MARKETPLACE_PATH = Path(__file__).resolve().parents[1] / ".agents" / "plugins" / "marketplace.json"
 SEMVER_PATTERN = re.compile(
-    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-    r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
+    r"^(0|[1-9]\d*)\."
+    r"(0|[1-9]\d*)\."
+    r"(0|[1-9]\d*)"
+    r"(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
+    r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
 )
 INSTALL_POLICIES = {"NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"}
 AUTH_POLICIES = {"ON_INSTALL", "ON_USE"}
@@ -33,14 +38,22 @@ def repository_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+def path_label(path: Path) -> str:
+    root = repository_root().resolve()
+    try:
+        return str(path.resolve().relative_to(root))
+    except ValueError:
+        return str(path)
+
+
 def load_json(path: Path, failures: list[str]) -> Any:
     try:
         with path.open(encoding="utf-8") as handle:
             return json.load(handle)
     except FileNotFoundError:
-        failures.append(f"{path.relative_to(repository_root())} does not exist")
-    except (json.JSONDecodeError, OSError) as exc:
-        failures.append(f"could not parse {path.relative_to(repository_root())}: {exc}")
+        failures.append(f"{path_label(path)} does not exist")
+    except (json.JSONDecodeError, UnicodeError, OSError) as exc:
+        failures.append(f"could not parse {path_label(path)}: {exc}")
     return None
 
 
@@ -69,7 +82,11 @@ def validate_plugin_manifest(manifest: Any, failures: list[str]) -> None:
     else:
         if author.get("name") != "thvvvchen":
             failures.append("plugin author.name must be thvvvchen")
-        require_string(author.get("url"), "plugin author.url", failures)
+        author_url = author.get("url")
+        if require_string(author_url, "plugin author.url", failures):
+            parsed_url = urlparse(author_url)
+            if parsed_url.scheme != "https" or not parsed_url.netloc:
+                failures.append("plugin author.url must be an absolute https:// URL")
 
     skills = manifest.get("skills")
     if skills != "./skills/":
