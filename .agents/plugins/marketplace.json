@@ -1,0 +1,20 @@
+{
+  "name": "my-skills-czf",
+  "interface": {
+    "displayName": "My Skills CZF"
+  },
+  "plugins": [
+    {
+      "name": "my-skills-czf",
+      "source": {
+        "source": "local",
+        "path": "./plugins/my-skills-czf"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

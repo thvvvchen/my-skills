@@ -1,0 +1,34 @@
+{
+  "name": "my-skills-czf",
+  "version": "0.1.0",
+  "description": "Reusable Codex skills for code walkthroughs, technical project summaries, and personal skill authoring.",
+  "author": {
+    "name": "thvvvchen",
+    "url": "https://github.com/thvvvchen"
+  },
+  "homepage": "https://github.com/thvvvchen/my-skills",
+  "repository": "https://github.com/thvvvchen/my-skills",
+  "keywords": [
+    "codex",
+    "skills",
+    "productivity"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "My Skills CZF",
+    "shortDescription": "Reusable skills for code analysis and technical writing.",
+    "longDescription": "A personal collection of reusable Codex skills for tracing real code flows, preparing technical project and interview materials, and maintaining new skills in the repository.",
+    "developerName": "thvvvchen",
+    "category": "Productivity",
+    "capabilities": [
+      "Code analysis",
+      "Technical writing",
+      "Skill authoring"
+    ],
+    "defaultPrompt": [
+      "Trace this feature's real code flow and lifecycle.",
+      "Turn this implementation into resume and interview material.",
+      "Add this reusable workflow to my personal skill repository."
+    ]
+  }
+}
