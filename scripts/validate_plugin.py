@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 from urllib.parse import urlparse
 
@@ -23,6 +23,7 @@ SEMVER_PATTERN = re.compile(
 )
 INSTALL_POLICIES = {"NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"}
 AUTH_POLICIES = {"ON_INSTALL", "ON_USE"}
+HEX_COLOR_PATTERN = re.compile(r"^#[0-9A-F]{6}$", re.IGNORECASE)
 PLUGIN_FIELDS = {
     "id",
     "name",
@@ -124,12 +125,27 @@ def validate_plugin_manifest(manifest: Any, failures: list[str]) -> None:
             if parsed_url.scheme != "https" or not parsed_url.netloc:
                 failures.append("plugin author.url must be an absolute https:// URL")
 
+    if "skills" not in manifest:
+        failures.append("plugin skills is required")
     validate_component_path(manifest, "skills", "skills", "directory", failures)
-    validate_component_path(manifest, "apps", ".app.json", "file", failures)
+
+    apps_path = validate_component_path(manifest, "apps", ".app.json", "file", failures)
+    if apps_path is not None:
+        validate_app_manifest(apps_path, failures)
 
     mcp_servers = manifest.get("mcpServers")
     if isinstance(mcp_servers, str):
-        validate_component_path(manifest, "mcpServers", ".mcp.json", "file", failures)
+        mcp_path = validate_component_path(
+            manifest,
+            "mcpServers",
+            ".mcp.json",
+            "file",
+            failures,
+        )
+        if mcp_path is not None:
+            validate_mcp_manifest(mcp_path, failures)
+    elif isinstance(mcp_servers, dict):
+        validate_mcp_server_entries(mcp_servers, "plugin mcpServers", failures)
     elif mcp_servers is not None and not isinstance(mcp_servers, dict):
         failures.append("plugin mcpServers must be a string or object")
 
@@ -162,6 +178,31 @@ def validate_plugin_manifest(manifest: Any, failures: list[str]) -> None:
     ):
         failures.append("plugin interface.defaultPrompt must contain 1-3 non-empty strings of at most 128 characters")
 
+    for field in ("websiteURL", "privacyPolicyURL", "termsOfServiceURL"):
+        validate_optional_https_url(interface, field, failures)
+
+    brand_color = interface.get("brandColor")
+    if brand_color is not None and (
+        not isinstance(brand_color, str)
+        or HEX_COLOR_PATTERN.fullmatch(brand_color) is None
+    ):
+        failures.append("plugin interface.brandColor must use #RRGGBB")
+
+    for field in ("composerIcon", "logo", "logoDark"):
+        if field in interface:
+            validate_asset_path(interface[field], f"interface.{field}", failures)
+
+    screenshots = interface.get("screenshots", [])
+    if not isinstance(screenshots, list):
+        failures.append("plugin interface.screenshots must be an array")
+    else:
+        for index, screenshot in enumerate(screenshots):
+            validate_asset_path(
+                screenshot,
+                f"interface.screenshots[{index}]",
+                failures,
+            )
+
 
 def reject_unknown_fields(
     payload: dict[str, Any],
@@ -182,38 +223,137 @@ def validate_component_path(
     expected: str,
     kind: str,
     failures: list[str],
-) -> None:
+) -> Path | None:
     raw_path = manifest.get(field)
     if raw_path is None:
-        return
+        return None
     if not isinstance(raw_path, str) or not raw_path.strip():
         failures.append(f"plugin {field} must be a non-empty relative path")
-        return
+        return None
 
-    normalized_path = raw_path.replace("\\", "/")
-    candidate = Path(normalized_path)
-    if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
-        failures.append(f"plugin {field} must stay inside the plugin root")
-        return
-
+    candidate = PurePosixPath(raw_path.replace("\\", "/"))
     normalized_contract = candidate.as_posix().rstrip("/")
-    if normalized_contract.startswith("./"):
-        normalized_contract = normalized_contract[2:]
     if normalized_contract != expected:
         failures.append(f"plugin {field} must resolve to {expected}")
-        return
+        return None
 
-    plugin_root = PLUGIN_ROOT.resolve()
-    resolved_path = (plugin_root / candidate).resolve()
-    try:
-        resolved_path.relative_to(plugin_root)
-    except ValueError:
-        failures.append(f"plugin {field} must stay inside the plugin root")
-        return
+    resolved_path = resolve_plugin_path(raw_path, field, failures)
+    if resolved_path is None:
+        return None
 
     exists = resolved_path.is_dir() if kind == "directory" else resolved_path.is_file()
     if not exists:
         failures.append(f"plugin {field} path {raw_path} does not exist")
+        return None
+    return resolved_path
+
+
+def resolve_plugin_path(raw_path: str, field: str, failures: list[str]) -> Path | None:
+    candidate = PurePosixPath(raw_path.replace("\\", "/"))
+    if (
+        candidate.is_absolute()
+        or PureWindowsPath(raw_path).is_absolute()
+        or any(part == ".." for part in candidate.parts)
+    ):
+        failures.append(f"plugin {field} must stay inside the plugin root")
+        return None
+
+    plugin_root = PLUGIN_ROOT.resolve()
+    resolved_path = (plugin_root / Path(*candidate.parts)).resolve()
+    try:
+        resolved_path.relative_to(plugin_root)
+    except ValueError:
+        failures.append(f"plugin {field} must stay inside the plugin root")
+        return None
+    return resolved_path
+
+
+def validate_asset_path(raw_path: Any, field: str, failures: list[str]) -> None:
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        failures.append(f"plugin {field} must be a non-empty relative path")
+        return
+    resolved_path = resolve_plugin_path(raw_path, field, failures)
+    if resolved_path is not None and not resolved_path.is_file():
+        failures.append(f"plugin {field} points to a missing file")
+
+
+def validate_optional_https_url(
+    interface: dict[str, Any],
+    field: str,
+    failures: list[str],
+) -> None:
+    value = interface.get(field)
+    if value is None:
+        return
+    parsed_url = urlparse(value) if isinstance(value, str) else None
+    if parsed_url is None or parsed_url.scheme != "https" or not parsed_url.netloc:
+        failures.append(f"plugin interface.{field} must be an absolute https:// URL")
+
+
+def load_companion_json(path: Path, label: str, failures: list[str]) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        failures.append(f"{label} must contain valid JSON")
+        return None
+    if not isinstance(payload, dict):
+        failures.append(f"{label} must contain a JSON object")
+        return None
+    return payload
+
+
+def reject_companion_unknown_fields(
+    payload: dict[str, Any],
+    allowed_fields: set[str],
+    label: str,
+    failures: list[str],
+) -> None:
+    for field in sorted(set(payload) - allowed_fields):
+        failures.append(f"{label} field `{field}` is not accepted by plugin validation")
+
+
+def validate_app_manifest(path: Path, failures: list[str]) -> None:
+    payload = load_companion_json(path, ".app.json", failures)
+    if payload is None:
+        return
+    reject_companion_unknown_fields(payload, {"apps"}, ".app.json", failures)
+    apps = payload.get("apps")
+    if not isinstance(apps, dict):
+        failures.append(".app.json field apps must be an object")
+        return
+    for name, app in apps.items():
+        if not isinstance(app, dict):
+            failures.append(f".app.json app {name} must be an object")
+            continue
+        reject_companion_unknown_fields(
+            app,
+            {"id", "category"},
+            f".app.json app {name}",
+            failures,
+        )
+        require_string(app.get("id"), f".app.json app {name}.id", failures)
+        category = app.get("category")
+        if category is not None:
+            require_string(category, f".app.json app {name}.category", failures)
+
+
+def validate_mcp_manifest(path: Path, failures: list[str]) -> None:
+    payload = load_companion_json(path, ".mcp.json", failures)
+    if payload is None:
+        return
+    reject_companion_unknown_fields(payload, {"mcpServers"}, ".mcp.json", failures)
+    validate_mcp_server_entries(payload.get("mcpServers"), ".mcp.json mcpServers", failures)
+
+
+def validate_mcp_server_entries(servers: Any, label: str, failures: list[str]) -> None:
+    if not isinstance(servers, dict):
+        failures.append(f"{label} must be an object")
+        return
+    for name, server in servers.items():
+        if not isinstance(name, str) or not name.strip():
+            failures.append(f"{label} server names must be non-empty strings")
+        if not isinstance(server, dict):
+            failures.append(f"{label} server {name} must be an object")
 
 
 def validate_marketplace(manifest: Any, failures: list[str]) -> None:
