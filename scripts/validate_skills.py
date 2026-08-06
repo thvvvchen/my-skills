@@ -17,6 +17,10 @@ def repository_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def skills_root() -> Path:
+    return repository_root() / "plugins" / "my-skills-czf" / "skills"
+
+
 def parse_scalar(value: str) -> str:
     value = value.strip()
     if value.startswith('"'):
@@ -84,9 +88,8 @@ def validate_skill(skill_dir: Path) -> list[str]:
 
 
 def main() -> int:
-    skills_root = repository_root() / "skills"
     skill_dirs = sorted(
-        path for path in skills_root.iterdir() if path.is_dir() and not path.name.startswith(".")
+        path for path in skills_root().iterdir() if path.is_dir() and not path.name.startswith(".")
     )
     if not skill_dirs:
         print("No skills found; repository structure is valid.")

@@ -17,6 +17,10 @@ def repository_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def skills_root() -> Path:
+    return repository_root() / "plugins" / "my-skills-czf" / "skills"
+
+
 def yaml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
@@ -54,7 +58,7 @@ def main() -> int:
         print("error: description cannot contain angle brackets", file=sys.stderr)
         return 2
 
-    skill_dir = repository_root() / "skills" / name
+    skill_dir = skills_root() / name
     if skill_dir.exists():
         print(f"error: skill already exists: {skill_dir}", file=sys.stderr)
         return 1

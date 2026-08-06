@@ -13,4 +13,6 @@ jobs:
         with:
           python-version: '3.12'
       - run: python scripts/validate_skills.py
+      - run: python scripts/validate_plugin.py
+      - run: python -m unittest discover -s tests
 
