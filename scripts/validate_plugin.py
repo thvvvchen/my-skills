@@ -23,6 +23,40 @@ SEMVER_PATTERN = re.compile(
 )
 INSTALL_POLICIES = {"NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"}
 AUTH_POLICIES = {"ON_INSTALL", "ON_USE"}
+PLUGIN_FIELDS = {
+    "id",
+    "name",
+    "version",
+    "description",
+    "skills",
+    "apps",
+    "mcpServers",
+    "interface",
+    "author",
+    "homepage",
+    "repository",
+    "license",
+    "keywords",
+}
+AUTHOR_FIELDS = {"name", "email", "url"}
+INTERFACE_FIELDS = {
+    "displayName",
+    "shortDescription",
+    "longDescription",
+    "developerName",
+    "category",
+    "capabilities",
+    "websiteURL",
+    "privacyPolicyURL",
+    "termsOfServiceURL",
+    "brandColor",
+    "composerIcon",
+    "logo",
+    "logoDark",
+    "screenshots",
+    "defaultPrompt",
+    "default_prompt",
+}
 REQUIRED_INTERFACE_FIELDS = {
     "displayName",
     "shortDescription",
@@ -30,7 +64,6 @@ REQUIRED_INTERFACE_FIELDS = {
     "developerName",
     "category",
     "capabilities",
-    "defaultPrompt",
 }
 
 
@@ -69,6 +102,8 @@ def validate_plugin_manifest(manifest: Any, failures: list[str]) -> None:
         failures.append("plugin manifest must be a JSON object")
         return
 
+    reject_unknown_fields(manifest, PLUGIN_FIELDS, None, failures)
+
     if manifest.get("name") != PLUGIN_NAME:
         failures.append(f"plugin name must be {PLUGIN_NAME}")
     version = manifest.get("version")
@@ -80,6 +115,7 @@ def validate_plugin_manifest(manifest: Any, failures: list[str]) -> None:
     if not isinstance(author, dict):
         failures.append("plugin author must be an object")
     else:
+        reject_unknown_fields(author, AUTHOR_FIELDS, "author", failures)
         if author.get("name") != "thvvvchen":
             failures.append("plugin author.name must be thvvvchen")
         author_url = author.get("url")
@@ -88,14 +124,20 @@ def validate_plugin_manifest(manifest: Any, failures: list[str]) -> None:
             if parsed_url.scheme != "https" or not parsed_url.netloc:
                 failures.append("plugin author.url must be an absolute https:// URL")
 
-    skills = manifest.get("skills")
-    if skills != "./skills/":
-        failures.append("plugin skills must be ./skills/")
+    validate_component_path(manifest, "skills", "skills", "directory", failures)
+    validate_component_path(manifest, "apps", ".app.json", "file", failures)
+
+    mcp_servers = manifest.get("mcpServers")
+    if isinstance(mcp_servers, str):
+        validate_component_path(manifest, "mcpServers", ".mcp.json", "file", failures)
+    elif mcp_servers is not None and not isinstance(mcp_servers, dict):
+        failures.append("plugin mcpServers must be a string or object")
 
     interface = manifest.get("interface")
     if not isinstance(interface, dict):
         failures.append("plugin interface must be an object")
         return
+    reject_unknown_fields(interface, INTERFACE_FIELDS, "interface", failures)
     for field in REQUIRED_INTERFACE_FIELDS:
         if field not in interface:
             failures.append(f"plugin interface missing {field}")
@@ -110,13 +152,68 @@ def validate_plugin_manifest(manifest: Any, failures: list[str]) -> None:
     ):
         failures.append("plugin interface.capabilities must be a non-empty string array")
 
-    prompts = interface.get("defaultPrompt")
+    if "defaultPrompt" not in interface and "default_prompt" not in interface:
+        failures.append("plugin interface missing defaultPrompt or default_prompt")
+    prompts = interface.get("defaultPrompt", interface.get("default_prompt"))
     if (
         not isinstance(prompts, list)
         or not 1 <= len(prompts) <= 3
         or any(not isinstance(item, str) or not item.strip() or len(item) > 128 for item in prompts)
     ):
         failures.append("plugin interface.defaultPrompt must contain 1-3 non-empty strings of at most 128 characters")
+
+
+def reject_unknown_fields(
+    payload: dict[str, Any],
+    allowed_fields: set[str],
+    prefix: str | None,
+    failures: list[str],
+) -> None:
+    for field in sorted(set(payload) - allowed_fields):
+        qualified_field = f"{prefix}.{field}" if prefix else field
+        failures.append(
+            f"plugin.json field `{qualified_field}` is not accepted by plugin validation"
+        )
+
+
+def validate_component_path(
+    manifest: dict[str, Any],
+    field: str,
+    expected: str,
+    kind: str,
+    failures: list[str],
+) -> None:
+    raw_path = manifest.get(field)
+    if raw_path is None:
+        return
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        failures.append(f"plugin {field} must be a non-empty relative path")
+        return
+
+    normalized_path = raw_path.replace("\\", "/")
+    candidate = Path(normalized_path)
+    if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
+        failures.append(f"plugin {field} must stay inside the plugin root")
+        return
+
+    normalized_contract = candidate.as_posix().rstrip("/")
+    if normalized_contract.startswith("./"):
+        normalized_contract = normalized_contract[2:]
+    if normalized_contract != expected:
+        failures.append(f"plugin {field} must resolve to {expected}")
+        return
+
+    plugin_root = PLUGIN_ROOT.resolve()
+    resolved_path = (plugin_root / candidate).resolve()
+    try:
+        resolved_path.relative_to(plugin_root)
+    except ValueError:
+        failures.append(f"plugin {field} must stay inside the plugin root")
+        return
+
+    exists = resolved_path.is_dir() if kind == "directory" else resolved_path.is_file()
+    if not exists:
+        failures.append(f"plugin {field} path {raw_path} does not exist")
 
 
 def validate_marketplace(manifest: Any, failures: list[str]) -> None:

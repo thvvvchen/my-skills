@@ -85,13 +85,13 @@ powershell -ExecutionPolicy Bypass -File scripts/install.ps1 -Mode copy -Force
 macOS/Linux：
 
 ```bash
-./scripts/install.sh
-./scripts/install.sh --agent claude
-./scripts/install.sh --agent codex
-./scripts/install.sh --agent cursor
-./scripts/install.sh --agent kimi
-./scripts/install.sh --agent trae
-./scripts/install.sh --mode copy --force
+bash scripts/install.sh
+bash scripts/install.sh --agent claude
+bash scripts/install.sh --agent codex
+bash scripts/install.sh --agent cursor
+bash scripts/install.sh --agent kimi
+bash scripts/install.sh --agent trae
+bash scripts/install.sh --mode copy --force
 ```
 
 默认安装位置和模式：
