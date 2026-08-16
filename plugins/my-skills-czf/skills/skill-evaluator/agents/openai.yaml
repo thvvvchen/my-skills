@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Evaluator"
+  short_description: "Evaluate and compare AI agent Skills with consistent evidence-based scoring"
+  default_prompt: "Use $skill-evaluator to evaluate this Skill and report actionable findings."

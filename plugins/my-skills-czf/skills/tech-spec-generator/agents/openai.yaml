@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tech Spec Generator"
+  short_description: "生成技术方案、补全既有方案并将方案拆分为可执行实现任务。适用于技术方案、设计文档、SDD、spec、架构设计、技术选型、需..."
+  default_prompt: "Use $tech-spec-generator to help complete this task."

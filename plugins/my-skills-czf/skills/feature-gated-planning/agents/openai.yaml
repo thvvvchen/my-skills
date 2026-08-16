@@ -1,0 +1,4 @@
+interface:
+  display_name: "功能关卡规划"
+  short_description: "按完整功能拆分计划，并逐项人工确认"
+  default_prompt: "使用 $feature-gated-planning 为当前研发需求制定分功能、可验收的实施计划。"

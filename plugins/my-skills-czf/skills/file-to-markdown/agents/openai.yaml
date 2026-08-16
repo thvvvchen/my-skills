@@ -1,0 +1,4 @@
+interface:
+  display_name: "File To Markdown"
+  short_description: "Convert common files to Markdown for LLM processing"
+  default_prompt: "Use $file-to-markdown to convert this file into Markdown."

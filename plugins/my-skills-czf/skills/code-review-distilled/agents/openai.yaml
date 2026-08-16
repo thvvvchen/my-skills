@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Review Distilled"
+  short_description: "Use when reviewing a commit, pull request, diff, or changed c..."
+  default_prompt: "Use $code-review-distilled to help complete this task."

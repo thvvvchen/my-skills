@@ -1,0 +1,4 @@
+interface:
+  display_name: "Self Improving Agent"
+  short_description: "Use when a skill or workflow produces reusable lessons, recur..."
+  default_prompt: "Use $self-improving-agent to help complete this task."

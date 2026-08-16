@@ -1,0 +1,4 @@
+interface:
+  display_name: "Graphify Lite"
+  short_description: "Build queryable knowledge graph reports"
+  default_prompt: "Use graphify-lite to analyze this project and generate a knowledge graph report."
